@@ -111,6 +111,8 @@ export const PublicationTimeline = () => {
   const [scheduledContent, setScheduledContent] = useState<ScheduledContent[]>(initialScheduledContent);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [isNewContentOpen, setIsNewContentOpen] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<{ date: string; hour: string } | null>(null);
   const [newContent, setNewContent] = useState({
     title: "",
     description: "",
@@ -163,6 +165,49 @@ export const PublicationTimeline = () => {
 
   const deleteContent = (id: string) => {
     setScheduledContent(scheduledContent.filter((c) => c.id !== id));
+  };
+
+  const handleDragStart = (e: React.DragEvent, itemId: string) => {
+    setDraggedItem(itemId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", itemId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverSlot(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: string, hour: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSlot({ date, hour });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSlot(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, date: string, hour: string) => {
+    e.preventDefault();
+    const itemId = e.dataTransfer.getData("text/plain");
+    
+    if (itemId) {
+      setScheduledContent(prev => prev.map(item => {
+        if (item.id === itemId) {
+          return {
+            ...item,
+            date,
+            time: hour,
+            status: item.status === "published" ? "scheduled" : item.status,
+          };
+        }
+        return item;
+      }));
+    }
+    
+    setDraggedItem(null);
+    setDragOverSlot(null);
   };
 
   const platforms = Object.keys(platformIcons);
@@ -367,22 +412,31 @@ export const PublicationTimeline = () => {
                   const dateStr = formatDate(day);
                   const isToday = dateStr === "2026-01-15";
                   const content = getContentForSlot(dateStr, hour);
+                  const isDragOver = dragOverSlot?.date === dateStr && dragOverSlot?.hour === hour;
                   
                   return (
                     <div
                       key={dayIndex}
                       className={cn(
-                        "min-h-[80px] p-2 border-l border-border",
-                        isToday && "bg-primary/5"
+                        "min-h-[80px] p-2 border-l border-border transition-colors",
+                        isToday && "bg-primary/5",
+                        isDragOver && "bg-primary/20 ring-2 ring-primary ring-inset"
                       )}
+                      onDragOver={(e) => handleDragOver(e, dateStr, hour)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, dateStr, hour)}
                     >
                       {content.map((item) => (
                         <div
                           key={item.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, item.id)}
+                          onDragEnd={handleDragEnd}
                           className={cn(
-                            "group relative p-2 rounded-lg mb-1 cursor-pointer transition-all hover:scale-[1.02]",
+                            "group relative p-2 rounded-lg mb-1 cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02]",
                             item.status === "published" && "opacity-60",
-                            "bg-card border border-border hover:border-primary/50"
+                            "bg-card border border-border hover:border-primary/50",
+                            draggedItem === item.id && "opacity-50 scale-95 ring-2 ring-primary"
                           )}
                         >
                           <div className="flex items-start gap-2">

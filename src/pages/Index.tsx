@@ -7,6 +7,7 @@ import { ContentEditor } from "@/pages/ContentEditor";
 import { MultiPlatform } from "@/pages/MultiPlatform";
 import { VideoStudio } from "@/pages/VideoStudio";
 import { AutoLayout } from "@/pages/AutoLayout";
+import { ImageEnhancer } from "@/pages/ImageEnhancer";
 
 const Index = () => {
   const [currentPath, setCurrentPath] = useState("/");
@@ -27,6 +28,8 @@ const Index = () => {
         return <MultiPlatform />;
       case "/layout":
         return <AutoLayout />;
+      case "/enhance":
+        return <ImageEnhancer />;
       default:
         return <Dashboard onNavigate={setCurrentPath} />;
     }

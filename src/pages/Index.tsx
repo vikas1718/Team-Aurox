@@ -5,6 +5,8 @@ import { VoiceStudio } from "@/pages/VoiceStudio";
 import { ImageStudio } from "@/pages/ImageStudio";
 import { ContentEditor } from "@/pages/ContentEditor";
 import { MultiPlatform } from "@/pages/MultiPlatform";
+import { VideoStudio } from "@/pages/VideoStudio";
+import { AutoLayout } from "@/pages/AutoLayout";
 
 const Index = () => {
   const [currentPath, setCurrentPath] = useState("/");
@@ -17,10 +19,14 @@ const Index = () => {
         return <VoiceStudio />;
       case "/image":
         return <ImageStudio />;
+      case "/video":
+        return <VideoStudio />;
       case "/editor":
         return <ContentEditor />;
       case "/platforms":
         return <MultiPlatform />;
+      case "/layout":
+        return <AutoLayout />;
       default:
         return <Dashboard onNavigate={setCurrentPath} />;
     }

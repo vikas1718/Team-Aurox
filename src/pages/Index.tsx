@@ -8,6 +8,7 @@ import { MultiPlatform } from "@/pages/MultiPlatform";
 import { VideoStudio } from "@/pages/VideoStudio";
 import { AutoLayout } from "@/pages/AutoLayout";
 import { ImageEnhancer } from "@/pages/ImageEnhancer";
+import { PublicationTimeline } from "@/pages/PublicationTimeline";
 
 const Index = () => {
   const [currentPath, setCurrentPath] = useState("/");
@@ -26,6 +27,8 @@ const Index = () => {
         return <ContentEditor />;
       case "/platforms":
         return <MultiPlatform />;
+      case "/timeline":
+        return <PublicationTimeline />;
       case "/layout":
         return <AutoLayout />;
       case "/enhance":

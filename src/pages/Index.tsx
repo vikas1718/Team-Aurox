@@ -1,12 +1,37 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Dashboard } from "@/pages/Dashboard";
+import { VoiceStudio } from "@/pages/VoiceStudio";
+import { ImageStudio } from "@/pages/ImageStudio";
+import { ContentEditor } from "@/pages/ContentEditor";
+import { MultiPlatform } from "@/pages/MultiPlatform";
 
 const Index = () => {
+  const [currentPath, setCurrentPath] = useState("/");
+
+  const renderPage = () => {
+    switch (currentPath) {
+      case "/":
+        return <Dashboard onNavigate={setCurrentPath} />;
+      case "/voice":
+        return <VoiceStudio />;
+      case "/image":
+        return <ImageStudio />;
+      case "/editor":
+        return <ContentEditor />;
+      case "/platforms":
+        return <MultiPlatform />;
+      default:
+        return <Dashboard onNavigate={setCurrentPath} />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="flex min-h-screen bg-background">
+      <Sidebar currentPath={currentPath} onNavigate={setCurrentPath} />
+      <main className="flex-1 ml-64">
+        {renderPage()}
+      </main>
     </div>
   );
 };

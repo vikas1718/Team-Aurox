@@ -4,17 +4,13 @@ import {
   Mic2, Play, Pause, Download, Volume2,
   Settings, Wand2, RefreshCw, CheckCircle2, Database,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
-// ── Supabase client ──────────────────────────────────────────
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+
 
 const BUCKET = "voice-audio";
 

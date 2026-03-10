@@ -1,18 +1,14 @@
 // src/pages/ReporterDashboard.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
 import {
   FileText, Send, Clock, CheckCircle2, XCircle,
   AlertCircle, LogOut, RefreshCw, Plus, X, MessageSquare, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 type Status = "pending" | "approved" | "revision" | "rejected";
 

@@ -6,7 +6,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+
 import {
   Sparkles, Upload, Download, RotateCcw, Sun, Contrast,
   Droplets, Focus, Palette, Zap, Image, Wand2,
@@ -14,10 +15,6 @@ import {
 } from "lucide-react";
 
 // ── Supabase ─────────────────────────────────────────────────
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 const BUCKET = "enhanced-images";
 
 interface Enhancement {

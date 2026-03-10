@@ -1,14 +1,9 @@
 // src/pages/Login.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff, Mic2, RefreshCw, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -20,7 +15,6 @@ export const Login = () => {
   const [error,     setError]    = useState<string | null>(null);
 
   const handleLogin = async () => {
-    // ── Validate all fields filled ────────────────────────────
     if (!email.trim() || !password.trim() || !teamKey.trim()) {
       setError("Please fill in all fields — email, password and team key.");
       return;
@@ -30,39 +24,68 @@ export const Login = () => {
     setIsLoading(true);
 
     try {
-      // ── Step 1: Authenticate with Supabase Auth ───────────────
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email:    email.trim(),
-        password: password.trim(),
-      });
+      // ── Step 1: Sign in with Supabase Auth ────────────────────
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email:    email.trim(),
+          password: password.trim(),
+        });
 
       if (authError) {
-        // Show friendly message instead of raw Supabase error
-        if (authError.message.includes("Invalid login")) {
+        if (
+          authError.message.toLowerCase().includes("invalid login") ||
+          authError.message.toLowerCase().includes("invalid credentials")
+        ) {
           throw new Error("Incorrect email or password.");
         }
         throw new Error(authError.message);
       }
 
-      // ── Step 2: Fetch profile and verify team key ─────────────
+      const userId = authData.user.id;
+      console.log("✅ Auth success. User ID:", userId);
+
+      // ── Step 2: Fetch profile ─────────────────────────────────
+      // Use maybeSingle() — returns null instead of throwing when no row found
       const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
         .select("role, team_key, full_name")
-        .eq("id", authData.user.id)
-        .single();
+        .eq("id", userId)
+        .maybeSingle();
 
-      if (profileError || !profile) {
+      console.log("📋 Profile fetch result:", profile, "Error:", profileError);
+
+      // If RLS blocked it or row doesn't exist
+      if (profileError) {
+        console.error("Profile error code:", profileError.code, profileError.message);
         await supabase.auth.signOut();
-        throw new Error("Your account is not configured. Contact your administrator.");
+        throw new Error(
+          `Profile fetch failed (${profileError.code}). ` +
+          `Make sure the user_profiles row exists and RLS policy allows SELECT.`
+        );
       }
 
-      // ── Step 3: Check team key matches ────────────────────────
-      if (profile.team_key.trim().toLowerCase() !== teamKey.trim().toLowerCase()) {
+      if (!profile) {
+        await supabase.auth.signOut();
+        throw new Error(
+          `No profile found for this account (ID: ${userId}). ` +
+          `Please insert a row in user_profiles for this user.`
+        );
+      }
+
+      // ── Step 3: Verify team key ───────────────────────────────
+      const storedKey  = profile.team_key.trim().toLowerCase();
+      const enteredKey = teamKey.trim().toLowerCase();
+
+      console.log("🔑 Team key check — stored:", storedKey, "| entered:", enteredKey);
+
+      if (storedKey !== enteredKey) {
         await supabase.auth.signOut();
         throw new Error("Invalid team key. Please check and try again.");
       }
 
-      // ── Step 4: Redirect based on role ────────────────────────
+      // ── Step 4: Redirect by role ──────────────────────────────
+      console.log("🎭 Role:", profile.role);
+
       if (profile.role === "reporter") {
         navigate("/reporter-dashboard");
       } else if (profile.role === "chief_reporter") {
@@ -70,7 +93,7 @@ export const Login = () => {
       } else if (profile.role === "sub_editor") {
         navigate("/");
       } else {
-        throw new Error("Unknown role. Contact your administrator.");
+        throw new Error(`Unknown role "${profile.role}". Contact your administrator.`);
       }
 
     } catch (err) {
@@ -80,7 +103,6 @@ export const Login = () => {
     }
   };
 
-  // Allow Enter key to submit
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleLogin();
   };
@@ -98,7 +120,7 @@ export const Login = () => {
           <p className="text-muted-foreground mt-1">News Weaver Platform</p>
         </div>
 
-        {/* Login Card */}
+        {/* Card */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-xl space-y-5">
 
           <div className="text-center pb-1">
@@ -157,7 +179,7 @@ export const Login = () => {
             </p>
           </div>
 
-          {/* Error Banner */}
+          {/* Error */}
           {error && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-start gap-2">
               <span className="shrink-0 mt-0.5">⚠️</span>

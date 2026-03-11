@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface HeaderProps {
   title: string;
@@ -60,6 +61,9 @@ export const Header = ({ title, subtitle, onNavigate }: HeaderProps) => {
             <Plus className="w-4 h-4 mr-2" />
             New Content
           </Button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* User Profile Dropdown */}
           <DropdownMenu>

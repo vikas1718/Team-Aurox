@@ -1,7 +1,9 @@
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Bell, Shield, Palette, Globe } from "lucide-react";
+import { useTheme } from "next-themes";
+import { User, Bell, Shield, Palette, Globe, Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface SettingsProps {
   onNavigate?: (path: string) => void;
@@ -9,6 +11,17 @@ interface SettingsProps {
 
 export const Settings = ({ onNavigate }: SettingsProps) => {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen">
@@ -74,7 +87,23 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                   <p className="text-foreground">Theme</p>
                   <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
                 </div>
-                <Button variant="outline" size="sm">Light</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                >
+                  {theme === "dark" ? (
+                    <>
+                      <Moon className="w-4 h-4 mr-2" />
+                      Dark
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="w-4 h-4 mr-2" />
+                      Light
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>

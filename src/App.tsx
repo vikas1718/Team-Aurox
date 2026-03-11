@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // ── Contexts ─────────────────────────────────────────────────
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // ── Existing pages ────────────────────────────────────────────
@@ -21,35 +22,37 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Routes>
 
-            {/* ── Auth ── */}
-            <Route path="/login" element={<Login />} />
+              {/* ── Auth ── */}
+              <Route path="/login" element={<Login />} />
 
-            {/* ── Protected Routes ── */}
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              {/* ── Protected Routes ── */}
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 
-            {/* ── Reporter Dashboard ── */}
-            <Route path="/reporter-dashboard" element={<ProtectedRoute><ReporterDashboard /></ProtectedRoute>} />
+              {/* ── Reporter Dashboard ── */}
+              <Route path="/reporter-dashboard" element={<ProtectedRoute><ReporterDashboard /></ProtectedRoute>} />
 
-            {/* ── Chief Reporter Dashboard ── */}
-            <Route path="/chief-dashboard" element={<ProtectedRoute><ChiefDashboard /></ProtectedRoute>} />
+              {/* ── Chief Reporter Dashboard ── */}
+              <Route path="/chief-dashboard" element={<ProtectedRoute><ChiefDashboard /></ProtectedRoute>} />
 
-            {/* ── Sub Editor → redirects to main app ── */}
-            <Route path="/editor-dashboard" element={<Navigate to="/" replace />} />
+              {/* ── Sub Editor → redirects to main app ── */}
+              <Route path="/editor-dashboard" element={<Navigate to="/" replace />} />
 
-            {/* ── Catch-all ── */}
-            <Route path="*" element={<NotFound />} />
+              {/* ── Catch-all ── */}
+              <Route path="*" element={<NotFound />} />
 
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

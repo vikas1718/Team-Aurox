@@ -63,6 +63,56 @@
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
   }
+
+  /* Light Theme */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 35 92% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 200 80% 55%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 14% 85%;
+    --input: 214 14% 85%;
+    --ring: 35 92% 55%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 35 92% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 14% 85%;
+    --sidebar-ring: 35 92% 55%;
+
+    /* Light theme custom tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(35 92% 55%), hsl(25 95% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(200 80% 55%), hsl(220 80% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.5));
+    
+    --shadow-glow: 0 0 40px rgba(245, 158, 11, 0.2);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+    --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.15);
+  }
 }
 
 @layer base {

@@ -10,8 +10,7 @@ import {
   Share2,
   Calendar,
   Layers,
-  Sparkles,
-  Scale
+  Sparkles
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
@@ -74,18 +73,12 @@ const tools = [
     description: "Enhance photos with AI: color correction, noise reduction, and smart improvements.",
     path: "/enhance"
   },
-  {
-    icon: Scale,
-    title: "Upscaling",
-    description: "Increase image resolution while preserving quality using advanced AI algorithms.",
-    path: "/upscale"
-  },
 ];
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   return (
     <div className="min-h-screen">
-      <Header title="Dashboard" subtitle="Welcome back! Here's your newsroom overview." />
+      <Header title="Dashboard" subtitle="Welcome back! Here's your newsroom overview." onNavigate={onNavigate} />
       
       <main className="p-6 space-y-6">
         {/* Stats Row */}
@@ -133,7 +126,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
           {/* Quick Actions - 1 column */}
           <div>
-            <QuickActions />
+            <QuickActions onNavigate={onNavigate} />
           </div>
         </div>
 

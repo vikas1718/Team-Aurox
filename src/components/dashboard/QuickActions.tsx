@@ -4,7 +4,6 @@ import {
   Video, 
   FileEdit, 
   Sparkles, 
-  Scale,
   Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,18 +13,22 @@ interface QuickAction {
   label: string;
   shortcut: string;
   color: string;
+  path: string;
 }
 
 const actions: QuickAction[] = [
-  { icon: Mic2, label: "Voice", shortcut: "⌘V", color: "from-green-500 to-emerald-600" },
-  { icon: Image, label: "Image", shortcut: "⌘I", color: "from-purple-500 to-violet-600" },
-  { icon: Video, label: "Video", shortcut: "⌘D", color: "from-red-500 to-rose-600" },
-  { icon: FileEdit, label: "Edit", shortcut: "⌘E", color: "from-blue-500 to-cyan-600" },
-  { icon: Sparkles, label: "Enhance", shortcut: "⌘H", color: "from-amber-500 to-orange-600" },
-  { icon: Scale, label: "Upscale", shortcut: "⌘U", color: "from-pink-500 to-fuchsia-600" },
+  { icon: Mic2, label: "Voice", shortcut: "⌘V", color: "from-green-500 to-emerald-600", path: "/voice" },
+  { icon: Image, label: "Image", shortcut: "⌘I", color: "from-purple-500 to-violet-600", path: "/image" },
+  { icon: Video, label: "Video", shortcut: "⌘D", color: "from-red-500 to-rose-600", path: "/video" },
+  { icon: FileEdit, label: "Edit", shortcut: "⌘E", color: "from-blue-500 to-cyan-600", path: "/editor" },
+  { icon: Sparkles, label: "Enhance", shortcut: "⌘H", color: "from-amber-500 to-orange-600", path: "/enhance" },
 ];
 
-export const QuickActions = () => {
+interface QuickActionsProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
   return (
     <div className="card-elevated p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -42,6 +45,7 @@ export const QuickActions = () => {
               "opacity-0 animate-scale-in",
               `stagger-${index + 1}`
             )}
+            onClick={() => onNavigate?.(action.path)}
           >
             <div className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br",

@@ -8,7 +8,6 @@ import {
   Calendar, 
   Layers, 
   Sparkles, 
-  Scale,
   Languages,
   Lightbulb,
   Settings,
@@ -33,7 +32,6 @@ const stage1Items: NavItem[] = [
   { icon: Calendar, label: "Publication Timeline", href: "/timeline" },
   { icon: Layers, label: "Auto Layout", href: "/layout" },
   { icon: Sparkles, label: "Image Enhancer", href: "/enhance" },
-  { icon: Scale, label: "Upscaling", href: "/upscale" },
 ];
 
 const stage2Items: NavItem[] = [

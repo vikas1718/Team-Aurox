@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Image, Wand2, Download, RefreshCw,
-  Maximize, Grid3X3, Settings, Sparkles, Palette
+  Maximize, Grid3X3, Settings, Sparkles, Palette, Upload, X
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,12 @@ export const ImageStudio = () => {
   const [prompt,           setPrompt]           = useState("");
   const [isGenerating,     setIsGenerating]     = useState(false);
   const [generatedImages,  setGeneratedImages]  = useState<string[]>([]);
+  const [uploadedImages,   setUploadedImages]   = useState<string[]>([]);
+  const [isUploading,      setIsUploading]      = useState(false);
   const [error,            setError]            = useState<string | null>(null);
   const [userId,           setUserId]           = useState<string | null>(null);
   const [expandedImg,      setExpandedImg]      = useState<string | null>(null);
+  const [isDragging,       setIsDragging]       = useState(false);
 
   // ── Auto anonymous sign-in ───────────────────────────────────
   useEffect(() => {
@@ -161,6 +164,81 @@ export const ImageStudio = () => {
     a.click();
   };
 
+  // ── Handle drag and drop ─────────────────────────────────────
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const files = Array.from(e.dataTransfer.files).filter(
+      file => file.type.startsWith("image/")
+    );
+    
+    if (files.length > 0) {
+      await processUploadedImages(files);
+    }
+  }, [userId]);
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      await processUploadedImages(files);
+    }
+  }, [userId]);
+
+  // ── Process uploaded images ───────────────────────────────────
+  const processUploadedImages = async (files: File[]) => {
+    setIsUploading(true);
+    setError(null);
+    
+    try {
+      const newImageUrls: string[] = [];
+      
+      for (const file of files) {
+        // Create local URL for preview
+        const localUrl = URL.createObjectURL(file);
+        newImageUrls.push(localUrl);
+        
+        // Upload to Supabase if user is logged in
+        if (userId) {
+          const arrayBuffer = await file.arrayBuffer();
+          const fileName = `${userId}/${Date.now()}-${file.name}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("uploaded-images")
+            .upload(fileName, arrayBuffer, { 
+              contentType: file.type,
+              upsert: false 
+            });
+            
+          if (uploadError) {
+            console.error("Upload error:", uploadError.message);
+          }
+        }
+      }
+      
+      setUploadedImages(prev => [...prev, ...newImageUrls]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // ── Remove uploaded image ─────────────────────────────────────
+  const removeUploadedImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="min-h-screen">
       <Header title="Image Creation" subtitle="Generate stunning visuals with AI" />
@@ -274,6 +352,86 @@ export const ImageStudio = () => {
                     <Image className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">Your generated images will appear here</p>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Uploaded Images with Drag & Drop */}
+            <div className="card-elevated p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-lg font-semibold text-foreground">Upload Images</h3>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button variant="outline" size="sm" asChild>
+                    <span>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Browse Files
+                    </span>
+                  </Button>
+                </label>
+              </div>
+
+              {/* Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={cn(
+                  "relative border-2 border-dashed rounded-xl p-8 text-center transition-all",
+                  isDragging 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50",
+                  isUploading && "opacity-50 pointer-events-none"
+                )}
+              >
+                {isUploading ? (
+                  <div className="space-y-2">
+                    <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto" />
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className={cn(
+                      "w-10 h-10 mx-auto mb-3 transition-colors",
+                      isDragging ? "text-primary" : "text-muted-foreground"
+                    )} />
+                    <p className="text-sm text-foreground mb-1">
+                      {isDragging ? "Drop images here" : "Drag & drop images here"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      or click "Browse Files" to select
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Uploaded Images Preview */}
+              {uploadedImages.length > 0 && (
+                <div className="mt-4 grid grid-cols-4 gap-3">
+                  {uploadedImages.map((img, index) => (
+                    <div key={index} className="relative group rounded-lg overflow-hidden aspect-square">
+                      <img
+                        src={img}
+                        alt={`Uploaded ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => removeUploadedImage(index)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

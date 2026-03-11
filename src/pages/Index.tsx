@@ -6,9 +6,10 @@ import { ImageStudio } from "@/pages/ImageStudio";
 import { ContentEditor } from "@/pages/ContentEditor";
 import { MultiPlatform } from "@/pages/MultiPlatform";
 import { VideoStudio } from "@/pages/VideoStudio";
-import { AutoLayout } from "@/pages/AutoLayout";
+import AutoLayout from "@/pages/AutoLayout";
 import { ImageEnhancer } from "@/pages/ImageEnhancer";
 import { PublicationTimeline } from "@/pages/PublicationTimeline";
+import { Settings } from "@/pages/Settings";
 
 const Index = () => {
   const [currentPath, setCurrentPath] = useState("/");
@@ -33,6 +34,8 @@ const Index = () => {
         return <AutoLayout />;
       case "/enhance":
         return <ImageEnhancer />;
+      case "/settings":
+        return <Settings onNavigate={setCurrentPath} />;
       default:
         return <Dashboard onNavigate={setCurrentPath} />;
     }

@@ -4,6 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+// ── Contexts ─────────────────────────────────────────────────
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 // ── Existing pages ────────────────────────────────────────────
 import Index    from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -20,29 +24,31 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
+      <AuthProvider>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
 
-          {/* ── Auth ── */}
-          <Route path="/login" element={<Login />} />
+            {/* ── Auth ── */}
+            <Route path="/login" element={<Login />} />
 
-          {/* ── Reporter Dashboard ── */}
-          <Route path="/reporter-dashboard" element={<ReporterDashboard />} />
+            {/* ── Protected Routes ── */}
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 
-          {/* ── Chief Reporter Dashboard ── */}
-          <Route path="/chief-dashboard" element={<ChiefDashboard />} />
+            {/* ── Reporter Dashboard ── */}
+            <Route path="/reporter-dashboard" element={<ProtectedRoute><ReporterDashboard /></ProtectedRoute>} />
 
-          {/* ── Sub Editor → redirects to main app ── */}
-          <Route path="/editor-dashboard" element={<Navigate to="/" replace />} />
+            {/* ── Chief Reporter Dashboard ── */}
+            <Route path="/chief-dashboard" element={<ProtectedRoute><ChiefDashboard /></ProtectedRoute>} />
 
-          {/* ── Main App ── */}
-          <Route path="/" element={<Index />} />
+            {/* ── Sub Editor → redirects to main app ── */}
+            <Route path="/editor-dashboard" element={<Navigate to="/" replace />} />
 
-          {/* ── Catch-all ── */}
-          <Route path="*" element={<NotFound />} />
+            {/* ── Catch-all ── */}
+            <Route path="*" element={<NotFound />} />
 
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

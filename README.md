@@ -143,10 +143,10 @@ DATABASE_URL=your_postgresql_url
 
 | Role | Name |
 |------|------|
-| CEO | Shivram Sir |
-| Mentor | Shashank Sir |
-| Trainer | Madhavi Mam |
-| Developer | Vikas (Intern) |
+| Developer | Vikas SP |
+| Developer | Chaman Raj |
+| Developer | Bhagyalakshmi |
+| Developer | Shashank SM |
 
 ---
 
@@ -154,3 +154,4 @@ DATABASE_URL=your_postgresql_url
 
 This project is developed as part of the **Infynexa Internship Program**.
 © 2025 Infynexa. All rights reserved.
+

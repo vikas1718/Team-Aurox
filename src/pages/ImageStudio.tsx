@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
-
-
 const styles = [
   { id: "photorealistic", name: "Photorealistic", icon: "📷" },
   { id: "editorial",      name: "Editorial",      icon: "📰" },
@@ -18,6 +16,15 @@ const styles = [
   { id: "dramatic",       name: "Dramatic",       icon: "🎭" },
   { id: "infographic",    name: "Infographic",    icon: "📊" },
 ];
+
+const stylePrompts: Record<string, string> = {
+  photorealistic: "photorealistic, DSLR photography, ultra realistic, sharp focus, 4K resolution, natural lighting",
+  editorial:      "editorial photography, newspaper style, journalistic, press photo, documentary, professional",
+  illustration:   "digital illustration, artistic, vibrant colors, detailed artwork, concept art, stylized",
+  minimalist:     "minimalist, clean composition, simple, white space, flat design, modern, uncluttered",
+  dramatic:       "dramatic lighting, cinematic, high contrast, moody atmosphere, intense shadows, epic",
+  infographic:    "infographic style, flat design, icons, data visualization, clean vectors, bold colors",
+};
 
 const aspectRatios = [
   { id: "1:1",  name: "Square",    width: 1024, height: 1024 },
@@ -38,6 +45,7 @@ export const ImageStudio = () => {
   const [userId,           setUserId]           = useState<string | null>(null);
   const [expandedImg,      setExpandedImg]      = useState<string | null>(null);
   const [isDragging,       setIsDragging]       = useState(false);
+  const [isGridView,       setIsGridView]       = useState(false);
 
   // ── Auto anonymous sign-in ───────────────────────────────────
   useEffect(() => {
@@ -55,14 +63,14 @@ export const ImageStudio = () => {
     const apiKey = import.meta.env.VITE_STABILITY_API_KEY;
     if (!apiKey) throw new Error("Add VITE_STABILITY_API_KEY to .env.local and restart.");
 
-    // Add style to prompt
-    const fullPrompt = `${imagePrompt}, ${selectedStyle.name} style, high quality, detailed`;
+    const styleDetail = stylePrompts[selectedStyle.id] || selectedStyle.name;
+    const fullPrompt  = `${imagePrompt}, ${styleDetail}, high quality, no text, no watermark`;
 
     const formData = new FormData();
-    formData.append("prompt",          fullPrompt);
-    formData.append("output_format",   "jpeg");
-    formData.append("width",           String(selectedRatio.width));
-    formData.append("height",          String(selectedRatio.height));
+    formData.append("prompt",        fullPrompt);
+    formData.append("output_format", "jpeg");
+    formData.append("width",         String(selectedRatio.width));
+    formData.append("height",        String(selectedRatio.height));
 
     const res = await fetch(
       "https://api.stability.ai/v2beta/stable-image/generate/core",
@@ -81,7 +89,6 @@ export const ImageStudio = () => {
       throw new Error(`Stability API Error ${res.status}: ${msg}`);
     }
 
-    // Convert image blob to base64 URL
     const blob      = await res.blob();
     const base64Url = await new Promise<string>((resolve) => {
       const reader  = new FileReader();
@@ -94,7 +101,6 @@ export const ImageStudio = () => {
 
   // ── Upload image to Supabase Storage ────────────────────────
   const uploadToStorage = async (base64Url: string, uid: string): Promise<string> => {
-    // Convert base64 to blob
     const res      = await fetch(base64Url);
     const blob     = await res.blob();
     const fileName = `${uid}/${Date.now()}.jpg`;
@@ -105,7 +111,7 @@ export const ImageStudio = () => {
 
     if (uploadError) {
       console.error("Storage upload failed:", uploadError.message);
-      return base64Url; // fallback to base64 if upload fails
+      return base64Url;
     }
 
     const { data } = supabase.storage.from("generated-images").getPublicUrl(fileName);
@@ -132,7 +138,6 @@ export const ImageStudio = () => {
     setGeneratedImages([]);
 
     try {
-      // Generate 2 images in parallel
       const [img1, img2] = await Promise.all([
         generateImage(prompt),
         generateImage(prompt),
@@ -141,7 +146,6 @@ export const ImageStudio = () => {
       const images = [img1, img2];
       setGeneratedImages(images);
 
-      // Save both to Supabase
       if (userId) {
         await Promise.all(images.map(async (img) => {
           const publicUrl = await uploadToStorage(img, userId);
@@ -158,13 +162,13 @@ export const ImageStudio = () => {
 
   // ── Download image ───────────────────────────────────────────
   const handleDownload = (imgUrl: string, index: number) => {
-    const a      = document.createElement("a");
-    a.href       = imgUrl;
-    a.download   = `generated-image-${Date.now()}-${index + 1}.jpg`;
+    const a    = document.createElement("a");
+    a.href     = imgUrl;
+    a.download = `generated-image-${Date.now()}-${index + 1}.jpg`;
     a.click();
   };
 
-  // ── Handle drag and drop ─────────────────────────────────────
+  // ── Drag and drop handlers ───────────────────────────────────
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -178,54 +182,33 @@ export const ImageStudio = () => {
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
-    const files = Array.from(e.dataTransfer.files).filter(
-      file => file.type.startsWith("image/")
-    );
-    
-    if (files.length > 0) {
-      await processUploadedImages(files);
-    }
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    if (files.length > 0) await processUploadedImages(files);
   }, [userId]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      await processUploadedImages(files);
-    }
+    if (files.length > 0) await processUploadedImages(files);
   }, [userId]);
 
-  // ── Process uploaded images ───────────────────────────────────
+  // ── Process uploaded images ──────────────────────────────────
   const processUploadedImages = async (files: File[]) => {
     setIsUploading(true);
     setError(null);
-    
     try {
       const newImageUrls: string[] = [];
-      
       for (const file of files) {
-        // Create local URL for preview
         const localUrl = URL.createObjectURL(file);
         newImageUrls.push(localUrl);
-        
-        // Upload to Supabase if user is logged in
         if (userId) {
           const arrayBuffer = await file.arrayBuffer();
-          const fileName = `${userId}/${Date.now()}-${file.name}`;
-          
+          const fileName    = `${userId}/${Date.now()}-${file.name}`;
           const { error: uploadError } = await supabase.storage
             .from("uploaded-images")
-            .upload(fileName, arrayBuffer, { 
-              contentType: file.type,
-              upsert: false 
-            });
-            
-          if (uploadError) {
-            console.error("Upload error:", uploadError.message);
-          }
+            .upload(fileName, arrayBuffer, { contentType: file.type, upsert: false });
+          if (uploadError) console.error("Upload error:", uploadError.message);
         }
       }
-      
       setUploadedImages(prev => [...prev, ...newImageUrls]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -234,7 +217,6 @@ export const ImageStudio = () => {
     }
   };
 
-  // ── Remove uploaded image ─────────────────────────────────────
   const removeUploadedImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
@@ -304,8 +286,15 @@ export const ImageStudio = () => {
             <div className="card-elevated p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display text-lg font-semibold text-foreground">Generated Images</h3>
-                <Button variant="ghost" size="sm" className="text-muted-foreground">
-                  <Grid3X3 className="w-4 h-4 mr-2" />Grid View
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("text-muted-foreground", isGridView && "text-primary bg-primary/10")}
+                  onClick={() => setIsGridView(!isGridView)}
+                  disabled={generatedImages.length === 0}
+                >
+                  <Grid3X3 className="w-4 h-4 mr-2" />
+                  {isGridView ? "Single View" : "Grid View"}
                 </Button>
               </div>
 
@@ -318,7 +307,10 @@ export const ImageStudio = () => {
                   </div>
                 </div>
               ) : generatedImages.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className={cn(
+                  "grid gap-4",
+                  isGridView ? "grid-cols-2" : "grid-cols-1"
+                )}>
                   {generatedImages.map((img, index) => (
                     <div
                       key={index}
@@ -331,7 +323,10 @@ export const ImageStudio = () => {
                       <img
                         src={img}
                         alt={`Generated ${index + 1}`}
-                        className="w-full aspect-square object-cover"
+                        className={cn(
+                          "w-full object-cover",
+                          isGridView ? "aspect-square" : "max-h-[500px]"
+                        )}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
@@ -356,7 +351,7 @@ export const ImageStudio = () => {
               )}
             </div>
 
-            {/* Uploaded Images with Drag & Drop */}
+            {/* Upload Images */}
             <div className="card-elevated p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display text-lg font-semibold text-foreground">Upload Images</h3>
@@ -369,23 +364,19 @@ export const ImageStudio = () => {
                     className="hidden"
                   />
                   <Button variant="outline" size="sm" asChild>
-                    <span>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Browse Files
-                    </span>
+                    <span><Upload className="w-4 h-4 mr-2" />Browse Files</span>
                   </Button>
                 </label>
               </div>
 
-              {/* Drop Zone */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 className={cn(
                   "relative border-2 border-dashed rounded-xl p-8 text-center transition-all",
-                  isDragging 
-                    ? "border-primary bg-primary/10" 
+                  isDragging
+                    ? "border-primary bg-primary/10"
                     : "border-border hover:border-primary/50",
                   isUploading && "opacity-50 pointer-events-none"
                 )}
@@ -404,29 +395,18 @@ export const ImageStudio = () => {
                     <p className="text-sm text-foreground mb-1">
                       {isDragging ? "Drop images here" : "Drag & drop images here"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      or click "Browse Files" to select
-                    </p>
+                    <p className="text-xs text-muted-foreground">or click "Browse Files" to select</p>
                   </>
                 )}
               </div>
 
-              {/* Uploaded Images Preview */}
               {uploadedImages.length > 0 && (
                 <div className="mt-4 grid grid-cols-4 gap-3">
                   {uploadedImages.map((img, index) => (
                     <div key={index} className="relative group rounded-lg overflow-hidden aspect-square">
-                      <img
-                        src={img}
-                        alt={`Uploaded ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={img} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeUploadedImage(index)}
-                        >
+                        <Button size="sm" variant="destructive" onClick={() => removeUploadedImage(index)}>
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
@@ -504,7 +484,7 @@ export const ImageStudio = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Ratio</span>
-                  <span className="text-sm font-medium text-foreground">{selectedRatio.id}</span>
+                  <span className="text-sm font-medium text-foreground">{selectedRatio.id} ({selectedRatio.width}×{selectedRatio.height})</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Saved to Supabase</span>

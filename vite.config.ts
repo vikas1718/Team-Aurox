@@ -18,4 +18,14 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // ── TensorFlow.js fix ──────────────────────────────────────
+  optimizeDeps: {
+    include: [
+      "@tensorflow/tfjs",
+      "@tensorflow-models/coco-ssd",
+    ],
+  },
+  define: {
+    global: "globalThis", // TF.js uses Node-style `global` — map it to browser
+  },
 }));

@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import {
   Wand2, Copy, Check, ArrowRight,
   Minus, Plus, RefreshCw,
-  BookOpen, Newspaper, MessageSquare, Radio, Sparkles, ChevronDown, ChevronUp
+  BookOpen, Newspaper, MessageSquare, Radio, Sparkles, ChevronDown, ChevronUp,
+  AlertCircle, CheckCircle2, Target
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-
 
 const outputFormats = [
   { id: "web",    name: "Web Article",   icon: BookOpen,      wordCount: 800 },
@@ -50,37 +50,52 @@ const languages = [
   { id: "kannada", name: "Kannada" },
 ];
 
-// ── Build dynamic prompt from injection settings ──────────────
-const buildPrompt = (
-  content: string,
+// ── FIXED: Prompt now anchors to the source content first ─────────────────
+// Key fixes:
+// 1. Source content appears FIRST so the model reads it before instructions
+// 2. Strict word range (min AND max) with a counting reminder
+// 3. "Do not add topics not in the source" prevents hallucination
+// 4. System role separated from user prompt for clarity
+const buildSystemPrompt = (
   format: string,
-  wordCount: number,
   tone: string,
   category: string,
   writingStyle: string,
   language: string
 ): string => {
-  return `You are a professional news editor for a ${category} news platform.
+  return `You are a professional news editor specializing in ${category} content.
+Your job is to REWRITE the user's provided article — you must stay strictly on the same topic, facts, and events as the source.
+DO NOT invent new events, topics, people, or facts that are not in the source.
+Output format: ${format}
+Tone: ${tone}
+Writing style: ${writingStyle}
+Language: ${language} only — every single word must be in ${language}.
+Return ONLY the article body — no title, no headings, no labels, no preamble.`;
+};
 
-Your task is to write a FULL ${format} article in ${language} language.
+const buildUserPrompt = (
+  content: string,
+  wordCount: number
+): string => {
+  const minWords = Math.max(50,  Math.round(wordCount * 0.9));
+  const maxWords = Math.round(wordCount * 1.1);
 
-STRICT RULES:
-- Tone: ${tone}
-- Category: ${category}
-- Writing Style: ${writingStyle}
-- Word Count: Write MINIMUM ${wordCount} words — if needed write more but never less
-- Language: Write EVERYTHING in ${language} only
-- EXPAND the content by adding:
-  * Background context and history
-  * Impact on students and society  
-  * Quotes from imaginary officials
-  * Statistics and supporting data
-  * Future implications
-- Do NOT summarize — this is a full news article
-- Return ONLY the article body — no title, no headings, no labels
+  return `Here is the source article you must adapt:
 
-Base Content:
-${content}`;
+---SOURCE START---
+${content}
+---SOURCE END---
+
+Rewrite the above source article strictly based on its content.
+Word count: write between ${minWords} and ${maxWords} words — count carefully as you write and stop when you reach ${maxWords} words.
+Do not add any topics, events, or facts that are not present in the source above.`;
+};
+
+// ── Token budget: ~1.4 tokens per English word, 1.8 for Hindi/Kannada ─────
+const wordsToTokens = (words: number, language: string): number => {
+  const multiplier = language === "english" ? 1.5 : 2.0;
+  // Add 20% buffer, cap at 4096
+  return Math.min(4096, Math.ceil(words * multiplier * 1.2));
 };
 
 export const ContentEditor = () => {
@@ -92,16 +107,26 @@ export const ContentEditor = () => {
   const [copied,           setCopied]           = useState(false);
   const [error,            setError]            = useState<string | null>(null);
   const [userId,           setUserId]           = useState<string | null>(null);
+  const [wordCountStatus,  setWordCountStatus]  = useState<"ok" | "over" | "under" | null>(null);
 
-  // ── Prompt Injection States ───────────────────────────────────
   const [showInjection,    setShowInjection]    = useState(false);
   const [selectedTone,     setSelectedTone]     = useState(tones[0]);
   const [selectedCategory, setSelectedCategory] = useState(categories[0]);
   const [selectedStyle,    setSelectedStyle]    = useState(writingStyles[0]);
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]);
 
-  const inputWordCount  = inputText.split(/\s+/).filter(Boolean).length;
-  const outputWordCount = outputText.split(/\s+/).filter(Boolean).length;
+  const inputWordCount  = inputText.trim()   ? inputText.split(/\s+/).filter(Boolean).length  : 0;
+  const outputWordCount = outputText.trim()  ? outputText.split(/\s+/).filter(Boolean).length : 0;
+
+  // ── Word count accuracy badge ────────────────────────────────
+  useEffect(() => {
+    if (!outputText) { setWordCountStatus(null); return; }
+    const target = targetWordCount[0];
+    const pct    = outputWordCount / target;
+    if (pct >= 0.88 && pct <= 1.12)      setWordCountStatus("ok");
+    else if (outputWordCount > target)   setWordCountStatus("over");
+    else                                  setWordCountStatus("under");
+  }, [outputText, outputWordCount, targetWordCount]);
 
   // ── Auto anonymous sign-in ───────────────────────────────────
   useEffect(() => {
@@ -114,7 +139,7 @@ export const ContentEditor = () => {
     init();
   }, []);
 
-  // ── Call Groq API with injected prompt ───────────────────────
+  // ── FIXED: Groq call with system/user split + dynamic token budget ───────
   const callGroq = async (
     content: string,
     format: string,
@@ -123,15 +148,18 @@ export const ContentEditor = () => {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!apiKey) throw new Error("Add VITE_GROQ_API_KEY to .env.local and restart.");
 
-    const prompt = buildPrompt(
-      content,
+    const systemPrompt = buildSystemPrompt(
       format,
-      wordCount,
       selectedTone.name,
       selectedCategory.name,
       selectedStyle.name,
       selectedLanguage.name
     );
+
+    const userPrompt = buildUserPrompt(content, wordCount);
+
+    // Dynamic token budget so short targets aren't over-generated
+    const maxTokens = wordsToTokens(wordCount, selectedLanguage.id);
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -141,8 +169,11 @@ export const ContentEditor = () => {
       },
       body: JSON.stringify({
         model:      "llama-3.1-8b-instant",
-        max_tokens: 2048,
-        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,           // ← dynamic, not hardcoded 2048
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userPrompt   },
+        ],
       }),
     });
 
@@ -152,7 +183,20 @@ export const ContentEditor = () => {
     }
 
     const data = await res.json();
-    return data.choices?.[0]?.message?.content ?? "";
+    const raw  = data.choices?.[0]?.message?.content ?? "";
+
+    // ── Post-process: trim to word limit if model slightly overshot ───────
+    const words = raw.split(/\s+/).filter(Boolean);
+    const maxWords = Math.round(wordCount * 1.1);
+    if (words.length > maxWords) {
+      // Trim to maxWords and close with an ellipsis-safe sentence boundary
+      const trimmed = words.slice(0, maxWords).join(" ");
+      const lastPeriod = trimmed.lastIndexOf(".");
+      return lastPeriod > trimmed.length * 0.8
+        ? trimmed.slice(0, lastPeriod + 1)
+        : trimmed;
+    }
+    return raw;
   };
 
   // ── Save to Supabase ─────────────────────────────────────────
@@ -182,6 +226,7 @@ export const ContentEditor = () => {
     if (!inputText.trim()) { setError("Please enter some content first."); return; }
     setError(null);
     setIsProcessing(true);
+    setOutputText("");
     try {
       const adapted = await callGroq(inputText, selectedFormat.name, targetWordCount[0]);
       setOutputText(adapted);
@@ -197,6 +242,28 @@ export const ContentEditor = () => {
     navigator.clipboard.writeText(outputText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleReset = () => {
+    setOutputText("");
+    setError(null);
+    setWordCountStatus(null);
+  };
+
+  // ── Word count badge ─────────────────────────────────────────
+  const WordCountBadge = () => {
+    if (!wordCountStatus) return null;
+    const config = {
+      ok:    { icon: CheckCircle2, text: "On target",  cls: "text-green-400 bg-green-500/10 border-green-500/30" },
+      over:  { icon: AlertCircle,  text: "Over limit", cls: "text-amber-400 bg-amber-500/10 border-amber-500/30" },
+      under: { icon: Target,       text: "Under target",cls: "text-blue-400  bg-blue-500/10  border-blue-500/30"  },
+    }[wordCountStatus];
+    const Icon = config.icon;
+    return (
+      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border", config.cls)}>
+        <Icon className="w-3 h-3" /> {config.text}
+      </span>
+    );
   };
 
   return (
@@ -252,7 +319,7 @@ export const ContentEditor = () => {
               <div className="text-left">
                 <p className="font-semibold text-foreground">Prompt Injection</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedTone.name} · {selectedCategory.name} · {selectedStyle.name} · {selectedLanguage.name}
+                  {selectedTone.emoji} {selectedTone.name} · {selectedCategory.emoji} {selectedCategory.name} · {selectedStyle.name} · {selectedLanguage.name}
                 </p>
               </div>
             </div>
@@ -308,8 +375,6 @@ export const ContentEditor = () => {
 
               {/* Writing Style + Language */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-                {/* Writing Style */}
                 <div>
                   <p className="text-sm font-medium text-foreground mb-3">Writing Style</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -330,7 +395,6 @@ export const ContentEditor = () => {
                   </div>
                 </div>
 
-                {/* Language */}
                 <div>
                   <p className="text-sm font-medium text-foreground mb-3">Language</p>
                   <div className="grid grid-cols-3 gap-2">
@@ -351,7 +415,6 @@ export const ContentEditor = () => {
                   </div>
                 </div>
               </div>
-
             </div>
           )}
         </div>
@@ -363,7 +426,12 @@ export const ContentEditor = () => {
           <div className="card-elevated p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-semibold text-foreground">Original Content</h3>
-              <span className="text-sm text-muted-foreground">{inputWordCount} words</span>
+              <span className={cn(
+                "text-sm",
+                inputWordCount === 0 ? "text-muted-foreground" : "text-foreground"
+              )}>
+                {inputWordCount} words
+              </span>
             </div>
             <textarea
               value={inputText}
@@ -371,6 +439,12 @@ export const ContentEditor = () => {
               placeholder="Paste your original article or content here..."
               className="w-full h-80 p-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none transition-all"
             />
+            {inputWordCount > 0 && inputWordCount < 20 && (
+              <p className="mt-2 text-xs text-amber-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Add more content for better results (at least 20 words recommended)
+              </p>
+            )}
           </div>
 
           {/* Output */}
@@ -378,7 +452,8 @@ export const ContentEditor = () => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-semibold text-foreground">Adapted Content</h3>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{outputWordCount} words</span>
+                <WordCountBadge />
+                <span className="text-sm text-muted-foreground">{outputWordCount} / {targetWordCount[0]} words</span>
                 <Button
                   variant="ghost" size="sm"
                   onClick={handleCopy}
@@ -399,11 +474,15 @@ export const ContentEditor = () => {
                 <div className="flex flex-col items-center justify-center h-full gap-3">
                   <RefreshCw className="w-8 h-8 text-primary animate-spin" />
                   <p className="text-muted-foreground text-sm">Adapting your content...</p>
+                  <p className="text-muted-foreground text-xs">Targeting ~{targetWordCount[0]} words</p>
                 </div>
               ) : outputText ? (
                 <p className="text-foreground leading-relaxed whitespace-pre-wrap">{outputText}</p>
               ) : (
-                <p className="text-muted-foreground text-center">Adapted content will appear here</p>
+                <div className="text-center space-y-1">
+                  <p className="text-muted-foreground">Adapted content will appear here</p>
+                  <p className="text-xs text-muted-foreground">Your original content will be rewritten — not replaced</p>
+                </div>
               )}
             </div>
           </div>
@@ -417,7 +496,10 @@ export const ContentEditor = () => {
             <div className="flex-1 w-full">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-muted-foreground">Target Word Count</span>
-                <span className="text-sm font-medium text-foreground">{targetWordCount[0]} words</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{targetWordCount[0]} words</span>
+                  <span className="text-xs text-muted-foreground">(±10% tolerance)</span>
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <Button
@@ -445,7 +527,7 @@ export const ContentEditor = () => {
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
-                onClick={() => { setOutputText(""); setError(null); }}
+                onClick={handleReset}
                 disabled={!outputText}
               >
                 <RefreshCw className="w-4 h-4 mr-2" />Reset
